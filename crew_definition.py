@@ -35,25 +35,28 @@ class ComplianceCrew:
 
         self.logger.info("Created extractor, matcher, and summarizer agents")
 
+        extract_task = Task(
+            description='Extract text from document: {text}',
+            expected_output='Extracted text content from the document',
+            agent=extractor
+        )
+        
+        match_task = Task(
+            description='Match extracted content against compliance rules. Only continue if compliance_score > 0.7',
+            expected_output='Compliance rule matching results with should_continue flag',
+            agent=matcher
+        )
+        
+        summarize_task = Task(
+            description='Generate compliance summary and checklist from matching results',
+            expected_output='Final compliance checklist and summary report',
+            agent=summarizer,
+            context=[extract_task, match_task]
+        )
+        
         crew = Crew(
             agents=[extractor, matcher, summarizer],
-            tasks=[
-                Task(
-                    description='Extract text from document: {text}',
-                    expected_output='Extracted text content from the document',
-                    agent=extractor
-                ),
-                Task(
-                    description='Match extracted content against compliance rules using dummy jurisdiction',
-                    expected_output='Compliance rule matching results with scores',
-                    agent=matcher
-                ),
-                Task(
-                    description='Generate compliance summary and checklist from matching results',
-                    expected_output='Final compliance checklist and summary report',
-                    agent=summarizer
-                )
-            ]
+            tasks=[extract_task, match_task, summarize_task]
         )
         self.logger.info("Compliance crew setup completed")
         return crew

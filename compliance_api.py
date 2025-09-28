@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
-from crew_definition import ComplianceCrew
+from conditional_workflow import ConditionalComplianceWorkflow
 
 app = FastAPI()
 
@@ -35,21 +35,20 @@ async def start_job(request: JobRequest):
         jobs[job_id]["status"] = "payment_failed"
         return {"job_id": job_id, "status": "payment_failed", "error": "Payment verification failed"}
     
-    # Payment succeeded, update status and run crew
+    # Payment succeeded, update status and run workflow
     jobs[job_id]["status"] = "processing"
     
-    # Initialize ComplianceCrew
-    crew = ComplianceCrew()
+    # Initialize conditional workflow
+    workflow = ConditionalComplianceWorkflow()
     
-    # Run crew workflow
-    input_data = {"text": request.document}
-    result = crew.crew.kickoff(input_data)
+    # Run conditional workflow
+    result = workflow.run_workflow(request.document, request.jurisdiction)
     
     # Update job with result
-    jobs[job_id]["status"] = "completed"
-    jobs[job_id]["result"] = str(result)
+    jobs[job_id]["status"] = result["status"]
+    jobs[job_id]["result"] = result
     
-    return {"job_id": job_id, "status": "completed", "result": str(result)}
+    return {"job_id": job_id, "status": result["status"], "result": result}
 
 @app.get("/status")
 async def get_status(job_id: str):
