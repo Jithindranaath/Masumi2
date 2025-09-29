@@ -1,8 +1,8 @@
 from agents.compliance_agents import ExtractorAgent, MatcherAgent, SummarizerAgent
 
-def demo_compliance_workflow():
+def demo_building_compliance():
     print("=" * 60)
-    print("COMPLIANCE AGENTS DEMO - INDIAN DOCUMENTS")
+    print("BUILDING CONSTRUCTION COMPLIANCE DEMO")
     print("=" * 60)
     
     # Initialize agents
@@ -24,22 +24,22 @@ def demo_compliance_workflow():
     )
     print("[SUCCESS] All agents initialized successfully")
     
-    # Real sample compliance documents
+    # Building construction documents for testing
     test_docs = [
         {
-            "name": "RBI KYC Guidelines",
-            "content": "As per RBI Master Direction on KYC, all banks shall ensure customer identification procedures including Aadhaar authentication, PAN verification, and risk categorization. High-risk customers require enhanced due diligence with additional documentation. Non-compliance may result in monetary penalties under Banking Regulation Act 1949.",
+            "name": "Complete Indian Building Documents",
+            "content": "Building permit approved by Municipal Corporation. NOC obtained from Fire Department for fire safety compliance. Structural design certified by licensed engineer. Environmental clearance granted. Architect license verified. Site plan shows proper setbacks. FSI compliance certificate issued. Foundation design approved.",
             "jurisdiction": "India"
         },
         {
-            "name": "GST Registration Certificate", 
-            "content": "GSTIN: 27ABCDE1234F1Z5. This certificate is issued under Goods and Services Tax Act 2017. The registered person shall file monthly returns GSTR-1 and GSTR-3B. Annual turnover exceeds Rs 5 crores requiring mandatory e-invoicing compliance. Valid till 31st March 2025.",
+            "name": "Incomplete Building Documents", 
+            "content": "Building permit application submitted. Architect has prepared initial drawings. Site survey completed. Some structural calculations done. Need to obtain fire safety clearance and environmental approvals.",
             "jurisdiction": "India"
         },
         {
-            "name": "SEBI Compliance Report",
-            "content": "Securities and Exchange Board of India compliance report for listed company. Quarterly disclosure requirements under SEBI LODR Regulations 2015. Board composition includes 50% independent directors. Audit committee comprises minimum 3 members with financial expertise.",
-            "jurisdiction": "India"
+            "name": "UK Building Documents",
+            "content": "Planning permission granted by local council. Building regulations approval obtained. Structural engineer certificate provided. Fire safety compliance verified. Building control approval issued. Party wall agreement signed with neighbors. Drainage plan approved.",
+            "jurisdiction": "UK"
         }
     ]
     
@@ -59,19 +59,22 @@ def demo_compliance_workflow():
         # Step 2: Rule Matching
         print("\n[STEP 2] Compliance Rule Matching")
         match_results = matcher.match_rules(extracted_text, doc['jurisdiction'])
-        print(f"   Matches: {match_results['matches']}")
-        print(f"   Compliance Score: {match_results['compliance_score']}")
+        print(f"   Found Documents: {match_results['found_documents']}")
+        print(f"   Missing Documents: {match_results['missing_documents']}")
+        print(f"   Compliance Score: {match_results['compliance_score']:.1%}")
         print(f"   Should Continue: {match_results['should_continue']}")
         
         # Step 3: Conditional Summarization
         print("\n[STEP 3] Summary Generation")
         if match_results['should_continue']:
             summary = summarizer.summarize(match_results)
-            print(f"   [SUCCESS] Summary: {summary}")
-            print(f"   STATUS: COMPLETED - All 3 agents executed")
+            print(f"\n[STEP 3] Construction Approval")
+            print(f"   [SUCCESS] {summary}")
+            print(f"   STATUS: APPROVED - All 3 agents executed")
         else:
-            print(f"   [SKIPPED] Compliance score too low")
-            print(f"   STATUS: STOPPED - Only 2 agents executed")
+            print(f"\n[STEP 3] Construction Approval")
+            print(f"   [REJECTED] Missing required documents")
+            print(f"   STATUS: NOT APPROVED - Only 2 agents executed")
     
     # Test with actual PDF if available
     print(f"\n{'-' * 50}")
@@ -90,18 +93,20 @@ def demo_compliance_workflow():
         extracted_text = extractor.parse_document(pdf_file)
         print(f"   Result: {extracted_text[:200]}...")
         
-        print("\n[STEP 2] Compliance Rule Matching")
+        print("\n[STEP 2] Building Code Compliance Check")
         match_results = matcher.match_rules(extracted_text, 'India')
-        print(f"   Matches: {match_results['matches']}")
-        print(f"   Compliance Score: {match_results['compliance_score']}")
+        print(f"   Found Documents: {match_results['found_documents']}")
+        print(f"   Missing Documents: {match_results['missing_documents']}")
+        print(f"   Compliance Score: {match_results['compliance_score']:.1%}")
         
         if match_results['should_continue']:
             summary = summarizer.summarize(match_results)
-            print(f"\n[STEP 3] Summary: {summary}")
-            print("   STATUS: PDF processed successfully!")
+            print(f"\n[STEP 3] Construction Approval: APPROVED")
+        else:
+            print(f"\n[STEP 3] Construction Approval: NOT APPROVED - Missing documents")
     else:
         print("No PDF files found in current directory")
-        print("Place your downloaded PDF in the project folder and run again")
+        print("Place your building permit PDF in the project folder and run again")
     
     print(f"\n{'=' * 60}")
     print("DEMO COMPLETED SUCCESSFULLY!")
@@ -109,4 +114,4 @@ def demo_compliance_workflow():
     print(f"{'=' * 60}")
 
 if __name__ == "__main__":
-    demo_compliance_workflow()
+    demo_building_compliance()

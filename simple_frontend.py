@@ -2,7 +2,7 @@ from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse
 import tempfile
 import os
-from conditional_workflow import ConditionalComplianceWorkflow
+from conditional_workflow import BuildingComplianceWorkflow
 
 app = FastAPI()
 
@@ -30,19 +30,19 @@ async def home():
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Compliance Agent Dashboard</h1>
+        <h1>🏗️ Building Construction Compliance Dashboard</h1>
         
         <div class="upload-box">
-            <h3>Upload Document for Compliance Check</h3>
+            <h3>Upload Building Documents for Construction Approval</h3>
             <form id="uploadForm" enctype="multipart/form-data">
                 <input type="file" name="file" accept=".pdf,.txt" required><br>
                 <select name="jurisdiction" required>
-                    <option value="">Select Jurisdiction</option>
+                    <option value="">Select Location</option>
                     <option value="India">India</option>
-                    <option value="EU">EU</option>
-                    <option value="US">US</option>
+                    <option value="EU">Europe (EU)</option>
+                    <option value="UK">United Kingdom</option>
                 </select><br>
-                <button type="submit">🚀 Start Processing</button>
+                <button type="submit">🏗️ Check Construction Approval</button>
             </form>
         </div>
 
@@ -123,7 +123,7 @@ async def process_file(file: UploadFile = File(...), jurisdiction: str = Form(..
     
     try:
         # Process with workflow
-        workflow = ConditionalComplianceWorkflow()
+        workflow = BuildingComplianceWorkflow()
         result = workflow.run_workflow(tmp_file_path, jurisdiction)
         return result
     finally:

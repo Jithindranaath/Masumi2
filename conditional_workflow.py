@@ -1,21 +1,21 @@
 from agents.compliance_agents import ExtractorAgent, MatcherAgent, SummarizerAgent
 
-class ConditionalComplianceWorkflow:
+class BuildingComplianceWorkflow:
     def __init__(self):
         self.extractor = ExtractorAgent(
-            role='Document Extractor',
-            goal='Parse documents',
-            backstory='Expert extractor'
+            role='Document Parser',
+            goal='Extract text from building permit documents',
+            backstory='Expert at parsing construction documents'
         )
         self.matcher = MatcherAgent(
-            role='Compliance Matcher', 
-            goal='Match rules',
-            backstory='Expert matcher'
+            role='Building Code Checker', 
+            goal='Verify building construction requirements',
+            backstory='Expert in building codes and construction regulations'
         )
         self.summarizer = SummarizerAgent(
-            role='Compliance Summarizer',
-            goal='Create summaries', 
-            backstory='Expert summarizer'
+            role='Construction Approval Agent',
+            goal='Provide construction approval or missing requirements', 
+            backstory='Expert at construction project approvals'
         )
     
     def run_workflow(self, document, jurisdiction="EU"):
