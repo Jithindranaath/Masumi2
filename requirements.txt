@@ -1,8 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-dotenv
 crewai
 masumi
 pydantic
 python-multipart
 httpx
+PyPDF2
+litellm

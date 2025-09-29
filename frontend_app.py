@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import os
 import tempfile
-from conditional_workflow import ConditionalComplianceWorkflow
+from conditional_workflow import BuildingComplianceWorkflow
 
 app = FastAPI()
 

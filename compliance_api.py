@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
-from conditional_workflow import ConditionalComplianceWorkflow
+from conditional_workflow import BuildingComplianceWorkflow
 
 app = FastAPI()
 
