@@ -21,16 +21,13 @@ class ConditionalComplianceWorkflow:
     def run_workflow(self, document, jurisdiction="EU"):
         # Step 1: Extract
         extracted_text = self.extractor.parse_document(document)
-        print(f"Step 1 - Extracted: {extracted_text}")
         
         # Step 2: Match with condition check
         match_results = self.matcher.match_rules(extracted_text, jurisdiction)
-        print(f"Step 2 - Match results: {match_results}")
         
         # Step 3: Only summarize if conditions met
         if match_results.get("should_continue", False):
             summary = self.summarizer.summarize(match_results)
-            print(f"Step 3 - Summary: {summary}")
             return {
                 "status": "completed",
                 "extracted": extracted_text,
@@ -38,10 +35,10 @@ class ConditionalComplianceWorkflow:
                 "summary": summary
             }
         else:
-            print("Step 3 - Skipped: Conditions not met")
             return {
                 "status": "stopped_at_matching",
                 "extracted": extracted_text,
                 "matches": match_results,
+                "summary": "Process stopped - Compliance conditions not met",
                 "reason": "Compliance score too low"
             }
