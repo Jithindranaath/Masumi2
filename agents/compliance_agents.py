@@ -10,9 +10,9 @@ class ExtractorAgent(Agent):
                 with open(file, 'rb') as pdf_file:
                     reader = PyPDF2.PdfReader(pdf_file)
                     text = ""
-                    for page in reader.pages[:3]:  # Read first 3 pages only
+                    for page in reader.pages:  # Read all pages
                         text += page.extract_text() + "\n"
-                    return text[:1000] + "..." if len(text) > 1000 else text
+                    return text
             except Exception as e:
                 return f"Error reading PDF: {str(e)}"
         else:
