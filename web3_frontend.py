@@ -52,6 +52,7 @@ async def get_frontend():
                         <option value="EU">European Union (MiCA, GDPR)</option>
                         <option value="US">United States (SEC, CFTC)</option>
                         <option value="UK">United Kingdom (FCA)</option>
+                        <option value="IN">India (PMLA, DPDP)</option>
                     </select><br><br>
 
                     <label>Document Input:</label><br>

@@ -56,7 +56,8 @@ class InputData(BaseModel):
 
 class StartJobRequest(BaseModel):
     identifier_from_purchaser: str
-    region: str = Field(default="EU", description="Compliance region (EU, US, UK, etc.)")
+    region: str = Field(default="EU", description="Compliance region (EU, US, UK, IN, etc.)")
+    project_type: str = Field(default="general", description="Project type (DeFi, NFT, DAO, general)")
     input_data: InputData
 
     class Config:
@@ -76,11 +77,11 @@ class ProvideInputRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # CrewAI Task Execution
 # ─────────────────────────────────────────────────────────────────────────────
-async def execute_crew_task(input_data: str, region: str = "EU") -> str:
+async def execute_crew_task(input_data: str, region: str = "EU", project_type: str = "general") -> str:
     """ Execute a CrewAI task with Web3 Compliance Analysis """
-    logger.info(f"Starting Web3 compliance analysis for region: {region}")
+    logger.info(f"Starting Web3 compliance analysis for region: {region}, type: {project_type}")
     crew = ComplianceCrew(logger=logger)
-    result = crew.crew.kickoff(inputs={"text": input_data, "region": region})
+    result = crew.crew.kickoff(inputs={"text": input_data, "region": region, "project_type": project_type})
     logger.info("Web3 compliance analysis completed successfully")
     return result
 
@@ -90,8 +91,6 @@ async def execute_crew_task(input_data: str, region: str = "EU") -> str:
 @app.post("/start_job")
 async def start_job(data: StartJobRequest):
     """ Initiates a job and creates a payment request (or executes directly in test mode) """
-    print(f"Received data: {data}")
-    print(f"Received data.input_data: {data.input_data}")
     try:
         job_id = str(uuid.uuid4())
         agent_identifier = os.getenv("AGENT_IDENTIFIER")
@@ -122,18 +121,12 @@ async def start_job(data: StartJobRequest):
             try:
                 region = getattr(data, 'region', 'EU')
                 result = await execute_crew_task(data.input_data.document_text, region)
-                result_dict = result.json_dict
                 logger.info(f"Web3 compliance analysis completed for job {job_id} in test mode")
 
                 # Update job status
                 jobs[job_id]["status"] = "completed"
                 jobs[job_id]["payment_status"] = "completed"
-                jobs[job_id]["result"] = result
-                jobs[job_id]["agent_results"] = {
-                    "extraction": result.tasks_output[0].raw if len(result.tasks_output) > 0 else None,
-                    "compliance_analysis": result.tasks_output[1].raw if len(result.tasks_output) > 1 else None,
-                    "summary": result.tasks_output[2].raw if len(result.tasks_output) > 2 else None
-                }
+                jobs[job_id]["result"] = result.raw
                 jobs[job_id]["agent_results"] = {
                     "extraction": result.tasks_output[0].raw if len(result.tasks_output) > 0 else None,
                     "compliance_analysis": result.tasks_output[1].raw if len(result.tasks_output) > 1 else None,
@@ -148,7 +141,7 @@ async def start_job(data: StartJobRequest):
                     "message": "Job completed in test mode without payment verification",
                     "agentIdentifier": agent_identifier,
                     "identifierFromPurchaser": data.identifier_from_purchaser,
-                    "result": result_dict
+                    "result": result.raw
                 }
             except Exception as e:
                 logger.error(f"Error executing task in test mode for job {job_id}: {str(e)}", exc_info=True)
@@ -265,7 +258,7 @@ async def handle_payment_status(job_id: str, payment_id: str) -> None:
         # Update job status
         jobs[job_id]["status"] = "completed"
         jobs[job_id]["payment_status"] = "completed"
-        jobs[job_id]["result"] = result
+        jobs[job_id]["result"] = result.raw
 
         # Stop monitoring payment status
         if job_id in payment_instances:
@@ -297,8 +290,7 @@ async def get_status(job_id: str):
     # Check if this is a test mode job
     if job.get("test_mode", False):
         logger.info(f"Job {job_id} is in test mode - returning test mode status")
-        result_data = job.get("result")
-        result = result_data.raw if result_data and hasattr(result_data, "raw") else None
+        result = job.get("result")
 
         return {
             "job_id": job_id,
@@ -321,8 +313,7 @@ async def get_status(job_id: str):
             logger.error(f"Error checking payment status: {str(e)}", exc_info=True)
             job["payment_status"] = "error"
 
-    result_data = job.get("result")
-    result = result_data.raw if result_data and hasattr(result_data, "raw") else None
+    result = job.get("result")
     agent_results = job.get("agent_results", {})
 
     return {

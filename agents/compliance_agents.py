@@ -2,6 +2,7 @@ from crewai import Agent
 import PyPDF2
 import os
 import litellm
+import json
 from dotenv import load_dotenv
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -66,37 +67,65 @@ class ComplianceAnalysisTool(BaseTool):
             """
 
             # Add jurisdiction-specific Web3 requirements to the prompt
-            if jurisdiction == "EU":
+            if jurisdiction.upper() in ["EU", "EUROPEAN UNION"]:
                 prompt += """
-                - MiCA (Markets in Crypto-Assets Regulation) Compliance
-                - GDPR (General Data Protection Regulation) Compliance
-                - AML Directive (Anti-Money Laundering) Requirements
-                - Consumer Protection Laws
-                - Financial Services Regulation
-                - Data Protection Impact Assessment
-                - KYC/AML Procedures for Users
-                - Token Classification (Security vs Utility)
+                - Entity Registration & Licensing / Oversight: Crypto-asset Service Providers (CASPs) must seek authorization from National Competent Authority under MiCA
+                - Token Issuance / White Paper / Disclosure: Publish white paper describing risks, features, governance, disclosures under MiCA
+                - KYC / Customer Due Diligence: Follow AML / KYC obligations; identify and verify customers
+                - AML / CFT / Financial Crime Compliance: Comply with AML Directives (AMLD5 / AMLD6) and integrate Travel Rule
+                - Consumer Protection / Disclosures / Complaints: Obligations for transparency, risk warnings, client asset segregation, complaint resolution
+                - Data Protection & Privacy: Comply with GDPR: data subject rights, privacy by design, lawful basis, breach notifications
+                - Operational Security / Audits / Technical Risk: Adopt operational resilience standards; security and system integrity
+                - Cross-border / International Compliance: MiCA and AML rules for cross-border services
+                - Taxation / Reporting / Accounting: EU / member states tax regimes; CARF (Crypto-Asset Reporting Framework)
+                - Enforcement, Penalties & Legal Risk: Regulatory sanctions, bans, fines by national authorities
+                - Governance / Internal Controls / Compliance Officer: Meet fit & proper criteria, governance arrangements, risk committees
+                - Monitoring Regulatory Changes & Transition / Grandfathering: Grandfathering clauses during MiCA transitional periods
                 """
-            elif jurisdiction == "US":
+            elif jurisdiction.upper() in ["US", "UNITED STATES"]:
                 prompt += """
-                - SEC (Securities and Exchange Commission) Registration
-                - CFTC (Commodity Futures Trading Commission) Compliance
-                - State Money Transmitter Licenses
-                - Federal Securities Laws
-                - Consumer Financial Protection Bureau (CFPB) Rules
-                - Bank Secrecy Act (BSA) Compliance
-                - FINRA (Financial Industry Regulatory Authority) Rules
-                - Howey Test Analysis for Tokens
+                - Entity Registration & Licensing / Oversight: SEC registration or exemptions; money transmitter licenses (FinCEN / states)
+                - Token Issuance / White Paper / Disclosure: Comply with securities laws (prospectus, disclosures); Howey test / SEC guidance
+                - KYC / Customer Due Diligence: Customer Due Diligence (CDD) norms under BSA / FinCEN
+                - AML / CFT / Financial Crime Compliance: BSA / FinCEN reporting, suspicious activity reporting, sanctions screening
+                - Consumer Protection / Disclosures / Complaints: Fiduciary duties, prospectus / risk disclosure obligations
+                - Data Protection & Privacy: Various privacy laws (federal and state, e.g. CCPA, sectoral)
+                - Operational Security / Audits / Technical Risk: SEC, CFTC, investors expectations; audit trails, cyber risk management
+                - Cross-border / International Compliance: Follow US rules + foreign regime considerations for non-US users
+                - Taxation / Reporting / Accounting: IRS treats crypto as property; capital gains / income tax; reporting
+                - Enforcement, Penalties & Legal Risk: SEC enforcement, civil / criminal liability
+                - Governance / Internal Controls / Compliance Officer: Board oversight, compliance culture, internal controls
+                - Monitoring Regulatory Changes & Transition / Grandfathering: Ongoing legislative proposals (e.g. digital asset bills)
                 """
-            elif jurisdiction == "UK":
+            elif jurisdiction.upper() in ["UK", "UNITED KINGDOM"]:
                 prompt += """
-                - FCA (Financial Conduct Authority) Registration
-                - Money Laundering Regulations 2017
-                - Electronic Money Regulations 2011
-                - Payment Services Regulations 2017
-                - Consumer Protection Regulations
-                - Financial Services and Markets Act 2000
-                - Cryptoasset Promotion Rules
+                - Entity Registration & Licensing / Oversight: Register under AML / money laundering regulatory regime (Money Laundering Regulations)
+                - Token Issuance / White Paper / Disclosure: Admission / disclosures rules for regulated tokens (e.g. stablecoins)
+                - KYC / Customer Due Diligence: KYC / CDD / EDD under Money Laundering Regulations
+                - AML / CFT / Financial Crime Compliance: UK AML / CTF rules and Travel Rule for crypto transfers
+                - Consumer Protection / Disclosures / Complaints: Financial promotion rules; fair, clear, not misleading marketing
+                - Data Protection & Privacy: UK GDPR / Data Protection Act; user consent, data portability
+                - Operational Security / Audits / Technical Risk: FCA expects robust systems, resilience, incident reporting
+                - Cross-border / International Compliance: Manage cross-border compliance and Travel Rule obligations
+                - Taxation / Reporting / Accounting: Treat crypto as capital gains / trading income; HMRC reporting
+                - Enforcement, Penalties & Legal Risk: FCA enforcement (fines, prohibition), consumer complaints, legal sanctions
+                - Governance / Internal Controls / Compliance Officer: Appoint compliance / MLROs, internal audit / oversight
+                - Monitoring Regulatory Changes & Transition / Grandfathering: UK proposing full crypto regulatory bill; transitional phases
+                """
+            elif jurisdiction.upper() in ["IN", "INDIA"]:
+                prompt += """
+                - Entity Registration & Licensing / Oversight: Register as VASP / Reporting Entity under PMLA / FIU-IND; corporate registrations
+                - Token Issuance / White Paper / Disclosure: Document token model, rights, vesting, risk factors; disclaimers, disclosures
+                - KYC / Customer Due Diligence: Conduct KYC / identity verification, periodic re-verification, enhanced due diligence
+                - AML / CFT / Financial Crime Compliance: Monitor transactions, detect suspicious activity (STRs), report to FIU-IND; sanctions compliance
+                - Consumer Protection / Disclosures / Complaints: Clear disclosures of risk, fees, terms, user agreement, complaint mechanism
+                - Data Protection & Privacy: Comply with DPDP Act: purpose limitation, consent, breach notification, data subject rights
+                - Operational Security / Audits / Technical Risk: Security audits, penetration tests, key custody, incident response
+                - Cross-border / International Compliance: FATF recommendations; Travel Rule for cross-border transfers; data localization
+                - Taxation / Reporting / Accounting: Tax gains on Virtual Digital Assets (30% + surcharge); TDS on transactions; records for audits
+                - Enforcement, Penalties & Legal Risk: Fines, prosecution under PMLA / FIU; penalties under DPDP
+                - Governance / Internal Controls / Compliance Officer: Compliance officer / MLRO; internal audit, training, policies
+                - Monitoring Regulatory Changes & Transition / Grandfathering: Monitor updates in DPDP rules, new crypto legislation
                 """
             else:
                 prompt += """
@@ -129,7 +158,6 @@ class ComplianceAnalysisTool(BaseTool):
             result_text = response.choices[0].message.content.strip()
 
             try:
-                import json
                 result = json.loads(result_text)
                 return json.dumps(result)
             except json.JSONDecodeError:
@@ -151,38 +179,71 @@ class ComplianceAnalysisTool(BaseTool):
         # Define Web3 compliance requirements for each jurisdiction
         web3_requirements = {
             "EU": {
-                "keywords": ["mica", "gdpr", "aml", "kyc", "crypto", "token", "blockchain", "defi", "dao", "nft", "compliance", "regulation", "privacy", "data protection"],
+                "keywords": ["mica", "gdpr", "aml", "kyc", "crypto", "token", "blockchain", "defi", "dao", "nft", "compliance", "regulation", "privacy", "data protection", "travel rule", "casps"],
                 "required_compliance": [
-                    "MiCA Compliance Assessment",
-                    "GDPR Privacy Impact Assessment",
-                    "KYC/AML Procedures",
-                    "Consumer Protection Measures",
-                    "Financial Crime Prevention",
-                    "Data Protection Compliance",
-                    "Regulatory Registration Status"
+                    "Entity Registration & Licensing / Oversight",
+                    "Token Issuance / White Paper / Disclosure",
+                    "KYC / Customer Due Diligence",
+                    "AML / CFT / Financial Crime Compliance",
+                    "Consumer Protection / Disclosures / Complaints",
+                    "Data Protection & Privacy",
+                    "Operational Security / Audits / Technical Risk",
+                    "Cross-border / International Compliance",
+                    "Taxation / Reporting / Accounting",
+                    "Enforcement, Penalties & Legal Risk",
+                    "Governance / Internal Controls / Compliance Officer",
+                    "Monitoring Regulatory Changes & Transition / Grandfathering"
                 ]
             },
             "US": {
-                "keywords": ["sec", "cftc", "finra", "securities", "security token", "utility token", "howey test", "registration", "compliance", "regulation", "crypto", "blockchain"],
+                "keywords": ["sec", "cftc", "finra", "securities", "security token", "utility token", "howey test", "registration", "compliance", "regulation", "crypto", "blockchain", "bsa", "fincen", "ccpa"],
                 "required_compliance": [
-                    "SEC Registration Status",
-                    "Securities Law Compliance",
-                    "Money Transmitter Licenses",
-                    "CFTC Registration Status",
-                    "Consumer Protection Compliance",
-                    "Bank Secrecy Act Compliance",
-                    "State Regulatory Compliance"
+                    "Entity Registration & Licensing / Oversight",
+                    "Token Issuance / White Paper / Disclosure",
+                    "KYC / Customer Due Diligence",
+                    "AML / CFT / Financial Crime Compliance",
+                    "Consumer Protection / Disclosures / Complaints",
+                    "Data Protection & Privacy",
+                    "Operational Security / Audits / Technical Risk",
+                    "Cross-border / International Compliance",
+                    "Taxation / Reporting / Accounting",
+                    "Enforcement, Penalties & Legal Risk",
+                    "Governance / Internal Controls / Compliance Officer",
+                    "Monitoring Regulatory Changes & Transition / Grandfathering"
                 ]
             },
             "UK": {
-                "keywords": ["fca", "financial conduct authority", "cryptoasset", "regulation", "compliance", "aml", "kyc", "financial promotion", "consumer protection"],
+                "keywords": ["fca", "financial conduct authority", "cryptoasset", "regulation", "compliance", "aml", "kyc", "financial promotion", "consumer protection", "travel rule", "hmrc"],
                 "required_compliance": [
-                    "FCA Registration Status",
-                    "Money Laundering Regulations Compliance",
-                    "Financial Promotion Compliance",
-                    "Consumer Protection Regulations",
-                    "Electronic Money Regulations",
-                    "Payment Services Compliance"
+                    "Entity Registration & Licensing / Oversight",
+                    "Token Issuance / White Paper / Disclosure",
+                    "KYC / Customer Due Diligence",
+                    "AML / CFT / Financial Crime Compliance",
+                    "Consumer Protection / Disclosures / Complaints",
+                    "Data Protection & Privacy",
+                    "Operational Security / Audits / Technical Risk",
+                    "Cross-border / International Compliance",
+                    "Taxation / Reporting / Accounting",
+                    "Enforcement, Penalties & Legal Risk",
+                    "Governance / Internal Controls / Compliance Officer",
+                    "Monitoring Regulatory Changes & Transition / Grandfathering"
+                ]
+            },
+            "IN": {
+                "keywords": ["pmla", "fiu-ind", "dpdp", "vasp", "crypto", "token", "blockchain", "defi", "dao", "nft", "compliance", "regulation", "kyc", "aml", "fatf", "travel rule"],
+                "required_compliance": [
+                    "Entity Registration & Licensing / Oversight",
+                    "Token Issuance / White Paper / Disclosure",
+                    "KYC / Customer Due Diligence",
+                    "AML / CFT / Financial Crime Compliance",
+                    "Consumer Protection / Disclosures / Complaints",
+                    "Data Protection & Privacy",
+                    "Operational Security / Audits / Technical Risk",
+                    "Cross-border / International Compliance",
+                    "Taxation / Reporting / Accounting",
+                    "Enforcement, Penalties & Legal Risk",
+                    "Governance / Internal Controls / Compliance Officer",
+                    "Monitoring Regulatory Changes & Transition / Grandfathering"
                 ]
             }
         }
