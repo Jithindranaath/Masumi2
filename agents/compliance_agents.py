@@ -3,121 +3,122 @@ import PyPDF2
 import os
 import litellm
 from dotenv import load_dotenv
+from crewai.tools import BaseTool
+from pydantic import BaseModel, Field
+from typing import Type
 
 # Load environment variables
 load_dotenv()
 
-class ExtractorAgent(Agent):
-    def __init__(self, **kwargs):
-        super().__init__(
-            allow_delegation=False,
-            **kwargs
-        )
+# CrewAI Tools for custom functionality
+class DocumentExtractionTool(BaseTool):
+    name: str = "Document Extraction Tool"
+    description: str = "Extracts text content from PDF documents or text input"
 
-    def parse_document(self, file):
-        # If it's a file path, read the PDF
-        if isinstance(file, str) and file.endswith('.pdf') and os.path.exists(file):
+    def _run(self, document_path: str) -> str:
+        """Extract text from document"""
+        if document_path.endswith('.pdf') and os.path.exists(document_path):
             try:
-                with open(file, 'rb') as pdf_file:
+                with open(document_path, 'rb') as pdf_file:
                     reader = PyPDF2.PdfReader(pdf_file)
                     text = ""
-                    for page in reader.pages:  # Read all pages
+                    for page in reader.pages:
                         text += page.extract_text() + "\n"
                     return text
             except Exception as e:
                 return f"Error reading PDF: {str(e)}"
         else:
-            # For text input, return as-is
-            return f"Extracted text: {file}"
+            return f"Extracted text: {document_path}"
 
+class ComplianceAnalysisTool(BaseTool):
+    name: str = "Web3 Compliance Analysis Tool"
+    description: str = "Analyzes Web3 project documents against regulatory compliance requirements using AI"
 
-class MatcherAgent(Agent):
-    def __init__(self, **kwargs):
-        super().__init__(
-            allow_delegation=False,
-            **kwargs
-        )
-
-    def match_rules(self, text, jurisdiction):
+    def _run(self, text: str, jurisdiction: str = "EU") -> str:
+        """Analyze Web3 compliance using OpenAI"""
         try:
-            # Create prompt for OpenAI to analyze compliance
+            # Create prompt for OpenAI to analyze Web3 compliance
             prompt = f"""
-            You are a building construction compliance expert. Analyze the following text for {jurisdiction} building construction requirements.
+            You are a Web3 regulatory compliance expert. Analyze the following project document for {jurisdiction} Web3/crypto regulatory requirements.
 
-            TEXT TO ANALYZE:
+            DOCUMENT TO ANALYZE:
             {text}
 
             Please identify:
-            1. Which required documents for {jurisdiction} building construction are present in the text
-            2. Which required documents are missing
-            3. Calculate a compliance score (0-1) based on how many required documents are found
-            4. Determine if construction should proceed (requires 80%+ compliance)
+            1. Which regulatory compliance requirements for {jurisdiction} Web3 projects are addressed in the document
+            2. Which compliance requirements are missing or not addressed
+            3. Calculate a compliance readiness score (0-1) based on how many requirements are met
+            4. Determine if the project is ready for launch (requires 70%+ compliance)
+            5. Identify specific regulatory risks and concerns
 
             Return your analysis in the following JSON format:
             {{
-                "found_documents": ["Document 1", "Document 2"],
-                "missing_documents": ["Document 3", "Document 4"],
+                "found_compliance": ["MiCA Compliance", "GDPR Article 13"],
+                "missing_compliance": ["KYC Procedures", "AML Documentation"],
                 "compliance_score": 0.75,
-                "should_continue": true,
-                "keywords_found": 8,
-                "total_required": 10,
-                "analysis": "Brief explanation of findings"
+                "ready_for_launch": true,
+                "risk_level": "medium",
+                "regulatory_frameworks": ["MiCA", "GDPR", "AML Directive"],
+                "analysis": "Detailed analysis of regulatory compliance status"
             }}
 
-            Consider these typical {jurisdiction} building construction requirements:
+            Consider these {jurisdiction} Web3 regulatory frameworks:
             """
 
-            # Add jurisdiction-specific requirements to the prompt
-            if jurisdiction == "India":
+            # Add jurisdiction-specific Web3 requirements to the prompt
+            if jurisdiction == "EU":
                 prompt += """
-                - Building Permit/Sanction Plan
-                - NOC from Fire Department
-                - Structural Design Certificate
-                - Environmental Clearance
-                - Municipal Corporation Approval
-                - Architect/Engineer License
-                - Site Plan with Setbacks
-                - FSI/FAR Compliance Certificate
+                - MiCA (Markets in Crypto-Assets Regulation) Compliance
+                - GDPR (General Data Protection Regulation) Compliance
+                - AML Directive (Anti-Money Laundering) Requirements
+                - Consumer Protection Laws
+                - Financial Services Regulation
+                - Data Protection Impact Assessment
+                - KYC/AML Procedures for Users
+                - Token Classification (Security vs Utility)
                 """
-            elif jurisdiction == "EU":
+            elif jurisdiction == "US":
                 prompt += """
-                - Building Permit
-                - Planning Permission
-                - Structural Engineer Certificate
-                - Energy Performance Certificate
-                - Fire Safety Compliance
-                - Accessibility Standards Compliance
-                - Environmental Impact Assessment
+                - SEC (Securities and Exchange Commission) Registration
+                - CFTC (Commodity Futures Trading Commission) Compliance
+                - State Money Transmitter Licenses
+                - Federal Securities Laws
+                - Consumer Financial Protection Bureau (CFPB) Rules
+                - Bank Secrecy Act (BSA) Compliance
+                - FINRA (Financial Industry Regulatory Authority) Rules
+                - Howey Test Analysis for Tokens
                 """
             elif jurisdiction == "UK":
                 prompt += """
-                - Planning Permission
-                - Building Regulations Approval
-                - Structural Engineer Certificate
-                - Fire Safety Certificate
-                - Building Control Approval
-                - Party Wall Agreement (if applicable)
-                - Drainage and Utilities Plan
+                - FCA (Financial Conduct Authority) Registration
+                - Money Laundering Regulations 2017
+                - Electronic Money Regulations 2011
+                - Payment Services Regulations 2017
+                - Consumer Protection Regulations
+                - Financial Services and Markets Act 2000
+                - Cryptoasset Promotion Rules
                 """
             else:
                 prompt += """
-                - Building Permit
-                - Construction Approval
-                - Safety Compliance Documents
-                - Environmental Clearance
+                - Securities Law Compliance
+                - Anti-Money Laundering (AML) Requirements
+                - Know Your Customer (KYC) Procedures
+                - Consumer Protection Laws
+                - Data Privacy Regulations
+                - Financial Services Licensing
                 """
 
             # Get OpenAI API key from environment
             openai_api_key = os.getenv('OPENAI_API_KEY')
             if not openai_api_key:
                 # Fallback to hardcoded logic if no API key
-                return self._fallback_match_rules(text, jurisdiction)
+                return json.dumps(self._fallback_web3_analysis(text, jurisdiction))
 
             # Call OpenAI via LiteLLM
             response = litellm.completion(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a building construction compliance expert. Always respond with valid JSON."},
+                    {"role": "system", "content": "You are a Web3 regulatory compliance expert specializing in crypto, DeFi, and blockchain projects. Always respond with valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
                 api_key=openai_api_key,
@@ -130,105 +131,135 @@ class MatcherAgent(Agent):
             try:
                 import json
                 result = json.loads(result_text)
+                return json.dumps(result)
             except json.JSONDecodeError:
                 # If JSON parsing fails, try to extract JSON from the response
                 import re
                 json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
                 if json_match:
                     result = json.loads(json_match.group())
+                    return json.dumps(result)
                 else:
                     raise ValueError(f"Could not parse OpenAI response as JSON: {result_text}")
 
-            return result
-
         except Exception as e:
             # Fallback to hardcoded logic if OpenAI fails
-            return self._fallback_match_rules(text, jurisdiction)
+            return json.dumps(self._fallback_web3_analysis(text, jurisdiction))
 
-    def _fallback_match_rules(self, text, jurisdiction):
-        """Fallback method using hardcoded rules if OpenAI fails"""
-        # Define building construction requirements for each jurisdiction
-        building_requirements = {
-            "India": {
-                "keywords": ["building permit", "noc", "fire safety", "structural design", "environmental clearance", "municipal approval", "architect", "engineer", "foundation", "construction plan", "building code", "setback", "fsi", "far"],
-                "required_docs": [
-                    "Building Permit/Sanction Plan",
-                    "NOC from Fire Department",
-                    "Structural Design Certificate",
-                    "Environmental Clearance",
-                    "Municipal Corporation Approval",
-                    "Architect/Engineer License",
-                    "Site Plan with Setbacks",
-                    "FSI/FAR Compliance Certificate"
+    def _fallback_web3_analysis(self, text, jurisdiction):
+        """Fallback method using hardcoded Web3 rules if OpenAI fails"""
+        # Define Web3 compliance requirements for each jurisdiction
+        web3_requirements = {
+            "EU": {
+                "keywords": ["mica", "gdpr", "aml", "kyc", "crypto", "token", "blockchain", "defi", "dao", "nft", "compliance", "regulation", "privacy", "data protection"],
+                "required_compliance": [
+                    "MiCA Compliance Assessment",
+                    "GDPR Privacy Impact Assessment",
+                    "KYC/AML Procedures",
+                    "Consumer Protection Measures",
+                    "Financial Crime Prevention",
+                    "Data Protection Compliance",
+                    "Regulatory Registration Status"
                 ]
             },
-            "EU": {
-                "keywords": ["building permit", "planning permission", "structural engineer", "energy certificate", "fire safety", "accessibility", "environmental impact", "building regulations", "construction standards", "architect license"],
-                "required_docs": [
-                    "Building Permit",
-                    "Planning Permission",
-                    "Structural Engineer Certificate",
-                    "Energy Performance Certificate",
-                    "Fire Safety Compliance",
-                    "Accessibility Standards Compliance",
-                    "Environmental Impact Assessment"
+            "US": {
+                "keywords": ["sec", "cftc", "finra", "securities", "security token", "utility token", "howey test", "registration", "compliance", "regulation", "crypto", "blockchain"],
+                "required_compliance": [
+                    "SEC Registration Status",
+                    "Securities Law Compliance",
+                    "Money Transmitter Licenses",
+                    "CFTC Registration Status",
+                    "Consumer Protection Compliance",
+                    "Bank Secrecy Act Compliance",
+                    "State Regulatory Compliance"
                 ]
             },
             "UK": {
-                "keywords": ["planning permission", "building regulations", "structural engineer", "fire safety", "building control", "architect", "construction standards", "party wall", "environmental assessment", "drainage"],
-                "required_docs": [
-                    "Planning Permission",
-                    "Building Regulations Approval",
-                    "Structural Engineer Certificate",
-                    "Fire Safety Certificate",
-                    "Building Control Approval",
-                    "Party Wall Agreement (if applicable)",
-                    "Drainage and Utilities Plan"
+                "keywords": ["fca", "financial conduct authority", "cryptoasset", "regulation", "compliance", "aml", "kyc", "financial promotion", "consumer protection"],
+                "required_compliance": [
+                    "FCA Registration Status",
+                    "Money Laundering Regulations Compliance",
+                    "Financial Promotion Compliance",
+                    "Consumer Protection Regulations",
+                    "Electronic Money Regulations",
+                    "Payment Services Compliance"
                 ]
             }
         }
 
         # Get requirements for jurisdiction
-        requirements = building_requirements.get(jurisdiction, {"keywords": [], "required_docs": []})
+        requirements = web3_requirements.get(jurisdiction, web3_requirements["EU"])
         keywords = requirements["keywords"]
-        required_docs = requirements["required_docs"]
+        required_compliance = requirements["required_compliance"]
 
-        # Analyze text for building construction content
+        # Analyze text for Web3 compliance content
         text_lower = text.lower()
-        found_docs = []
-        missing_docs = []
+        found_compliance = []
+        missing_compliance = []
         keyword_count = 0
 
-        # Count keyword matches and identify found documents
+        # Count keyword matches and identify found compliance measures
         for keyword in keywords:
             if keyword in text_lower:
                 keyword_count += 1
 
-        # Check which required documents are mentioned
-        for doc in required_docs:
-            doc_keywords = doc.lower().split()
-            if any(keyword in text_lower for keyword in doc_keywords):
-                found_docs.append(doc)
+        # Check which compliance requirements are addressed
+        for compliance_item in required_compliance:
+            compliance_keywords = compliance_item.lower().split()
+            if any(keyword in text_lower for keyword in compliance_keywords):
+                found_compliance.append(compliance_item)
             else:
-                missing_docs.append(doc)
+                missing_compliance.append(compliance_item)
 
         # Calculate compliance score
-        total_docs = len(required_docs)
-        found_count = len(found_docs)
-        compliance_score = (found_count / total_docs) if total_docs > 0 else 0
+        total_requirements = len(required_compliance)
+        found_count = len(found_compliance)
+        compliance_score = (found_count / total_requirements) if total_requirements > 0 else 0
 
-        # Only proceed if most requirements are met
-        should_continue = compliance_score >= 0.8  # 80% of documents found
+        # Determine if ready for launch
+        ready_for_launch = compliance_score >= 0.7  # 70% compliance threshold
+
+        # Assess risk level
+        if compliance_score >= 0.8:
+            risk_level = "low"
+        elif compliance_score >= 0.6:
+            risk_level = "medium"
+        else:
+            risk_level = "high"
 
         return {
-            "found_documents": found_docs,
-            "missing_documents": missing_docs,
+            "found_compliance": found_compliance,
+            "missing_compliance": missing_compliance,
             "compliance_score": compliance_score,
-            "should_continue": should_continue,
-            "keywords_found": keyword_count,
-            "total_required": total_docs,
-            "analysis": f"Found {found_count}/{total_docs} required construction documents"
+            "ready_for_launch": ready_for_launch,
+            "risk_level": risk_level,
+            "regulatory_frameworks": [f"{jurisdiction} Web3 Regulations"],
+            "analysis": f"Found {found_count}/{total_requirements} Web3 compliance requirements. Risk level: {risk_level}"
         }
+
+class ExtractorAgent(Agent):
+    def __init__(self, **kwargs):
+        # Create the document extraction tool
+        extraction_tool = DocumentExtractionTool()
+
+        super().__init__(
+            tools=[extraction_tool],
+            allow_delegation=False,
+            llm=None,  # Disable LLM calls for pure extraction
+            **kwargs
+        )
+
+
+class MatcherAgent(Agent):
+    def __init__(self, **kwargs):
+        # Create the compliance analysis tool
+        analysis_tool = ComplianceAnalysisTool()
+
+        super().__init__(
+            tools=[analysis_tool],
+            allow_delegation=False,
+            **kwargs
+        )
 
 
 class SummarizerAgent(Agent):
@@ -237,39 +268,3 @@ class SummarizerAgent(Agent):
             allow_delegation=False,
             **kwargs
         )
-
-    def summarize(self, matches):
-        score = matches.get('compliance_score', 0)
-        found_docs = matches.get('found_documents', [])
-        missing_docs = matches.get('missing_documents', [])
-        total_required = matches.get('total_required', 0)
-        analysis = matches.get('analysis', '')
-        
-        if score >= 0.8:
-            status = "[APPROVED] YOU CAN PROCEED WITH CONSTRUCTION"
-            recommendation = "All major construction requirements are satisfied."
-        else:
-            status = "[NOT APPROVED] MISSING REQUIRED DOCUMENTS"
-            recommendation = "You need to obtain the missing documents before construction."
-        
-        summary = f"""BUILDING CONSTRUCTION COMPLIANCE REPORT
-        
-        STATUS: {status}
-        Compliance Score: {score:.1%} ({len(found_docs)}/{total_required} documents)
-        
-        DOCUMENTS FOUND:
-        {chr(10).join([f'  - {doc}' for doc in found_docs]) if found_docs else '  - None found'}
-        
-        MISSING DOCUMENTS:
-        {chr(10).join([f'  - {doc}' for doc in missing_docs]) if missing_docs else '  - None missing'}
-        
-        ANALYSIS: {analysis}
-        
-        RECOMMENDATION: {recommendation}
-        
-        NEXT STEPS:
-        {'  - Proceed with construction as all requirements are met!' if score >= 0.8 else '  - Obtain the missing documents listed above'}
-        {'  - Contact local building authority for final approval' if score >= 0.8 else '  - Submit complete documentation for approval'}
-        {'  - Begin construction with proper permits' if score >= 0.8 else '  - Do not start construction until all documents are obtained'}
-        """
-        return summary

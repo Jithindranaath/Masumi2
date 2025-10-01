@@ -23,12 +23,14 @@ def test_api():
         print(f"Schema check failed: {e}")
         return
 
-    # Test start job with simple data
+    # Test start job with Web3 compliance data
     print("\nTesting start_job endpoint...")
     test_data = {
-        "identifier_from_purchaser": "test_user_123",
+        "identifier_from_purchaser": "web3_user_123",
+        "region": "EU",
         "input_data": {
-            "text": "Building permit approved by Municipal Corporation"
+            "document_text": "Our DeFi protocol enables users to stake tokens and earn rewards. We have implemented KYC procedures and comply with GDPR requirements. The token is a utility token for governance purposes.",
+            "document_type": "whitepaper"
         }
     }
 

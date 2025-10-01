@@ -4,6 +4,7 @@ import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from typing import Dict
 from masumi.config import Config
 from masumi.payment import Payment, Amount
 from crew_definition import ComplianceCrew
@@ -50,16 +51,21 @@ config = Config(
 # ─────────────────────────────────────────────────────────────────────────────
 # Pydantic Models
 # ─────────────────────────────────────────────────────────────────────────────
+class InputData(BaseModel):
+    document_text: str
+
 class StartJobRequest(BaseModel):
     identifier_from_purchaser: str
-    input_data: dict[str, str]
-    
+    region: str = Field(default="EU", description="Compliance region (EU, US, UK, etc.)")
+    input_data: InputData
+
     class Config:
         json_schema_extra = {
             "example": {
-                "identifier_from_purchaser": "example_purchaser_123",
+                "identifier_from_purchaser": "web3_user_123",
+                "region": "EU",
                 "input_data": {
-                    "text": "Write a story about a robot learning to paint"
+                    "document_text": "Whitepaper content about our DeFi protocol..."
                 }
             }
         }
@@ -70,12 +76,12 @@ class ProvideInputRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 # CrewAI Task Execution
 # ─────────────────────────────────────────────────────────────────────────────
-async def execute_crew_task(input_data: str) -> str:
-    """ Execute a CrewAI task with Research and Writing Agents """
-    logger.info(f"Starting CrewAI task with input: {input_data}")
+async def execute_crew_task(input_data: str, region: str = "EU") -> str:
+    """ Execute a CrewAI task with Web3 Compliance Analysis """
+    logger.info(f"Starting Web3 compliance analysis for region: {region}")
     crew = ComplianceCrew(logger=logger)
-    result = crew.crew.kickoff(inputs={"text": input_data})
-    logger.info("CrewAI task completed successfully")
+    result = crew.crew.kickoff(inputs={"text": input_data, "region": region})
+    logger.info("Web3 compliance analysis completed successfully")
     return result
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,7 +97,7 @@ async def start_job(data: StartJobRequest):
         agent_identifier = os.getenv("AGENT_IDENTIFIER")
 
         # Log the input text (truncate if too long)
-        input_text = data.input_data["text"]
+        input_text = data.input_data.document_text
         truncated_input = input_text[:100] + "..." if len(input_text) > 100 else input_text
         logger.info(f"Received job request with input: '{truncated_input}'")
         logger.info(f"Starting job {job_id} with agent {agent_identifier}")
@@ -106,6 +112,7 @@ async def start_job(data: StartJobRequest):
                 "payment_status": "test_mode",
                 "payment_id": None,
                 "input_data": data.input_data,
+                "region": getattr(data, 'region', 'EU'),
                 "result": None,
                 "identifier_from_purchaser": data.identifier_from_purchaser,
                 "test_mode": True
@@ -113,14 +120,25 @@ async def start_job(data: StartJobRequest):
 
             # Execute the task directly in test mode
             try:
-                result = await execute_crew_task(data.input_data["text"])
+                region = getattr(data, 'region', 'EU')
+                result = await execute_crew_task(data.input_data.document_text, region)
                 result_dict = result.json_dict
-                logger.info(f"Crew task completed for job {job_id} in test mode")
+                logger.info(f"Web3 compliance analysis completed for job {job_id} in test mode")
 
                 # Update job status
                 jobs[job_id]["status"] = "completed"
                 jobs[job_id]["payment_status"] = "completed"
                 jobs[job_id]["result"] = result
+                jobs[job_id]["agent_results"] = {
+                    "extraction": result.tasks_output[0].raw if len(result.tasks_output) > 0 else None,
+                    "compliance_analysis": result.tasks_output[1].raw if len(result.tasks_output) > 1 else None,
+                    "summary": result.tasks_output[2].raw if len(result.tasks_output) > 2 else None
+                }
+                jobs[job_id]["agent_results"] = {
+                    "extraction": result.tasks_output[0].raw if len(result.tasks_output) > 0 else None,
+                    "compliance_analysis": result.tasks_output[1].raw if len(result.tasks_output) > 1 else None,
+                    "summary": result.tasks_output[2].raw if len(result.tasks_output) > 2 else None
+                }
 
                 # Return test mode response
                 return {
@@ -157,7 +175,7 @@ async def start_job(data: StartJobRequest):
                 #amounts=amounts,
                 config=config,
                 identifier_from_purchaser=data.identifier_from_purchaser,
-                input_data=data.input_data,
+                input_data=data.input_data.dict(),
                 network=NETWORK
             )
 
@@ -212,7 +230,7 @@ async def start_job(data: StartJobRequest):
         logger.error(f"Error in start_job: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail="Input_data or identifier_from_purchaser is missing, invalid, or does not adhere to the schema."
+            detail=f"Error processing request: {str(e)}"
         )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -232,11 +250,12 @@ async def handle_payment_status(job_id: str, payment_id: str) -> None:
         jobs[job_id]["status"] = "running"
         logger.info(f"Input data: {jobs[job_id]["input_data"]}")
 
-        # Execute the AI task
-        input_text = jobs[job_id]["input_data"]["text"]
-        result = await execute_crew_task(input_text)
+        # Execute the Web3 compliance analysis task
+        input_text = jobs[job_id]["input_data"].document_text
+        region = jobs[job_id].get("region", "EU").upper()
+        result = await execute_crew_task(input_text, region)
         result_dict = result.json_dict
-        logger.info(f"Crew task completed for job {job_id}")
+        logger.info(f"Web3 compliance analysis completed for job {job_id}")
 
         # Mark payment as completed on Masumi
         # Use a shorter string for the result hash
@@ -304,13 +323,15 @@ async def get_status(job_id: str):
 
     result_data = job.get("result")
     result = result_data.raw if result_data and hasattr(result_data, "raw") else None
+    agent_results = job.get("agent_results", {})
 
     return {
         "job_id": job_id,
         "status": job["status"],
         "payment_status": job["payment_status"],
         "test_mode": False,
-        "result": result
+        "result": result,
+        "agent_results": agent_results
     }
 
 # ─────────────────────────────────────────────────────────────────────────────

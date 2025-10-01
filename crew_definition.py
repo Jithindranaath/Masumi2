@@ -13,43 +13,43 @@ class ComplianceCrew:
         self.logger.info("Creating compliance crew with agents")
         
         extractor = ExtractorAgent(
-            role='Document Extractor',
-            goal='Parse and extract text from uploaded documents',
-            backstory='Expert at document parsing and text extraction',
+            role='Web3 Document Analyzer',
+            goal='Extract and analyze content from Web3 project documents',
+            backstory='Expert at parsing whitepapers, tokenomics, and Web3 documentation',
             verbose=self.verbose
         )
 
         matcher = MatcherAgent(
-            role='Compliance Matcher',
-            goal='Compare extracted text with predefined compliance rules',
-            backstory='Specialized in compliance rule matching and validation',
+            role='Web3 Compliance Expert',
+            goal='Analyze Web3 projects against regulatory requirements',
+            backstory='Specialized in MiCA, SEC, FCA, and other Web3 regulatory frameworks',
             verbose=self.verbose
         )
 
         summarizer = SummarizerAgent(
-            role='Compliance Summarizer',
-            goal='Produce final compliance checklist and summary',
-            backstory='Expert at creating compliance reports and summaries',
+            role='Web3 Compliance Advisor',
+            goal='Provide comprehensive compliance roadmap and risk assessment',
+            backstory='Expert at creating actionable compliance strategies for Web3 startups',
             verbose=self.verbose
         )
 
         self.logger.info("Created extractor, matcher, and summarizer agents")
 
         extract_task = Task(
-            description='Extract text from document: {text}',
-            expected_output='Extracted text content from the document',
+            description='Extract and analyze Web3 project document: {text}. Identify key project elements, tokenomics, use cases, and compliance-related information for {region} regulatory analysis.',
+            expected_output='Extracted Web3 project information with key compliance elements identified',
             agent=extractor
         )
-        
+
         match_task = Task(
-            description='Match extracted content against compliance rules. Only continue if compliance_score > 0.7',
-            expected_output='Compliance rule matching results with should_continue flag',
+            description='Analyze Web3 compliance for {region} region. Document: {text}. Check against MiCA (EU), SEC regulations (US), FCA rules (UK), and other relevant frameworks. Only continue if compliance_score > 0.7',
+            expected_output='Web3 compliance analysis with regulatory requirements, risk assessment, and launch readiness for {region} jurisdiction',
             agent=matcher
         )
-        
+
         summarize_task = Task(
-            description='Generate compliance summary and checklist from matching results',
-            expected_output='Final compliance checklist and summary report',
+            description='Create comprehensive Web3 compliance roadmap from analysis results. Include compliance checklist, risk mitigation steps, and regulatory next steps for {region} jurisdiction.',
+            expected_output='Web3 compliance checklist, risk assessment, and actionable roadmap',
             agent=summarizer,
             context=[extract_task, match_task]
         )
