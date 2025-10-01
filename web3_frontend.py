@@ -55,6 +55,14 @@ async def get_frontend():
                         <option value="IN">India (PMLA, DPDP)</option>
                     </select><br><br>
 
+                    <label for="project_type">Project Type:</label><br>
+                    <select id="project_type" name="project_type" required>
+                        <option value="general">General Web3 Project</option>
+                        <option value="DeFi">DeFi (AMM, Lending, Staking)</option>
+                        <option value="NFT">NFT (Art, Collectibles, Gaming)</option>
+                        <option value="DAO">DAO (Decentralized Governance)</option>
+                    </select><br><br>
+
                     <label>Document Input:</label><br>
                     <div style="margin: 10px 0;">
                         <input type="radio" id="text_input" name="input_type" value="text" checked>
@@ -138,6 +146,7 @@ async def get_frontend():
                 const formData = {
                     identifier_from_purchaser: document.getElementById('identifier').value,
                     region: document.getElementById('region').value,
+                    project_type: document.getElementById('project_type').value,
                     input_data: {
                         document_text: documentText
                     }

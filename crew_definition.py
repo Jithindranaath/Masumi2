@@ -36,20 +36,20 @@ class ComplianceCrew:
         self.logger.info("Created extractor, matcher, and summarizer agents")
 
         extract_task = Task(
-            description='Extract and analyze Web3 project document: {text}. Identify key project elements, tokenomics, use cases, and compliance-related information for {region} regulatory analysis.',
-            expected_output='Extracted Web3 project information with key compliance elements identified',
+            description='Extract text content from the {project_type} project document: {text}. Provide the raw document content for compliance analysis.',
+            expected_output='Raw extracted text from the {project_type} project document',
             agent=extractor
         )
 
         match_task = Task(
-            description='Analyze Web3 compliance for {region} region. Document: {text}. Check against MiCA (EU), SEC regulations (US), FCA rules (UK), and other relevant frameworks. Only continue if compliance_score > 0.7',
-            expected_output='Web3 compliance analysis with regulatory requirements, risk assessment, and launch readiness for {region} jurisdiction',
+            description='Analyze {project_type} compliance for {region} region. Document: {text}. Check against MiCA (EU), SEC regulations (US), FCA rules (UK), PMLA (IN), and other relevant frameworks. Only continue if compliance_score > 0.7',
+            expected_output='{project_type} compliance analysis with regulatory requirements, risk assessment, and launch readiness for {region} jurisdiction',
             agent=matcher
         )
 
         summarize_task = Task(
-            description='Create comprehensive Web3 compliance roadmap from analysis results. Include compliance checklist, risk mitigation steps, and regulatory next steps for {region} jurisdiction.',
-            expected_output='Web3 compliance checklist, risk assessment, and actionable roadmap',
+            description='Create comprehensive {project_type} compliance roadmap from analysis results. Include compliance checklist, risk mitigation steps, and regulatory next steps for {region} jurisdiction.',
+            expected_output='{project_type} compliance checklist, risk assessment, and actionable roadmap',
             agent=summarizer,
             context=[extract_task, match_task]
         )

@@ -35,18 +35,18 @@ class ComplianceAnalysisTool(BaseTool):
     name: str = "Web3 Compliance Analysis Tool"
     description: str = "Analyzes Web3 project documents against regulatory compliance requirements using AI"
 
-    def _run(self, text: str, jurisdiction: str = "EU") -> str:
+    def _run(self, text: str, jurisdiction: str = "EU", project_type: str = "general") -> str:
         """Analyze Web3 compliance using OpenAI"""
         try:
             # Create prompt for OpenAI to analyze Web3 compliance
             prompt = f"""
-            You are a Web3 regulatory compliance expert. Analyze the following project document for {jurisdiction} Web3/crypto regulatory requirements.
+            You are a Web3 regulatory compliance expert. Analyze the following {project_type} project document for {jurisdiction} Web3/crypto regulatory requirements.
 
             DOCUMENT TO ANALYZE:
             {text}
 
             Please identify:
-            1. Which regulatory compliance requirements for {jurisdiction} Web3 projects are addressed in the document
+            1. Which regulatory compliance requirements for {jurisdiction} {project_type} projects are addressed in the document
             2. Which compliance requirements are missing or not addressed
             3. Calculate a compliance readiness score (0-1) based on how many requirements are met
             4. Determine if the project is ready for launch (requires 70%+ compliance)
@@ -135,6 +135,35 @@ class ComplianceAnalysisTool(BaseTool):
                 - Consumer Protection Laws
                 - Data Privacy Regulations
                 - Financial Services Licensing
+                """
+
+            # Add project type specific context
+            if project_type.upper() in ["DEFI", "DEFI"]:
+                prompt += """
+                This is a DeFi project. Focus on aspects like:
+                - AMM, lending, staking, yield farming protocols
+                - Smart contract risks, oracle dependencies
+                - Liquidity provision and impermanent loss disclosures
+                - Cross-chain bridge security and audits
+                - Token emission schedules and governance
+                """
+            elif project_type.upper() in ["NFT", "NFT"]:
+                prompt += """
+                This is an NFT project. Focus on aspects like:
+                - Intellectual property rights and licensing
+                - Marketplace obligations and royalties
+                - Creator verification and provenance
+                - Secondary market trading and disclosures
+                - Utility vs collectible classification
+                """
+            elif project_type.upper() in ["DAO", "DAO"]:
+                prompt += """
+                This is a DAO project. Focus on aspects like:
+                - Governance token classification and securities laws
+                - Treasury management and multisig controls
+                - Voting mechanisms and quorum requirements
+                - Legal entity wrappers and liability
+                - Member participation and dispute resolution
                 """
 
             # Get OpenAI API key from environment

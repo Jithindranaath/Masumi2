@@ -112,6 +112,7 @@ async def start_job(data: StartJobRequest):
                 "payment_id": None,
                 "input_data": data.input_data,
                 "region": getattr(data, 'region', 'EU'),
+                "project_type": getattr(data, 'project_type', 'general'),
                 "result": None,
                 "identifier_from_purchaser": data.identifier_from_purchaser,
                 "test_mode": True
@@ -120,7 +121,8 @@ async def start_job(data: StartJobRequest):
             # Execute the task directly in test mode
             try:
                 region = getattr(data, 'region', 'EU')
-                result = await execute_crew_task(data.input_data.document_text, region)
+                project_type = getattr(data, 'project_type', 'general')
+                result = await execute_crew_task(data.input_data.document_text, region, project_type)
                 logger.info(f"Web3 compliance analysis completed for job {job_id} in test mode")
 
                 # Update job status
@@ -184,6 +186,8 @@ async def start_job(data: StartJobRequest):
                 "payment_status": "pending",
                 "payment_id": payment_id,
                 "input_data": data.input_data,
+                "region": getattr(data, 'region', 'EU'),
+                "project_type": getattr(data, 'project_type', 'general'),
                 "result": None,
                 "identifier_from_purchaser": data.identifier_from_purchaser,
                 "test_mode": False
@@ -246,7 +250,8 @@ async def handle_payment_status(job_id: str, payment_id: str) -> None:
         # Execute the Web3 compliance analysis task
         input_text = jobs[job_id]["input_data"].document_text
         region = jobs[job_id].get("region", "EU").upper()
-        result = await execute_crew_task(input_text, region)
+        project_type = jobs[job_id].get("project_type", "general")
+        result = await execute_crew_task(input_text, region, project_type)
         result_dict = result.json_dict
         logger.info(f"Web3 compliance analysis completed for job {job_id}")
 
