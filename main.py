@@ -1,6 +1,10 @@
 import os
 import uvicorn
 import uuid
+import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel, Field, field_validator
@@ -52,12 +56,16 @@ config = Config(
 # Pydantic Models
 # ─────────────────────────────────────────────────────────────────────────────
 class InputData(BaseModel):
-    document_text: str
+    document_text: str = Field(..., min_length=10, description="Document content to analyze")
+    document_type: str = Field(default="whitepaper", description="Type of document (whitepaper, tokenomics, legal, etc.)")
+    priority: str = Field(default="normal", description="Analysis priority (low, normal, high)")
 
 class StartJobRequest(BaseModel):
-    identifier_from_purchaser: str
+    identifier_from_purchaser: str = Field(..., min_length=3, description="Unique identifier for the purchaser")
     region: str = Field(default="EU", description="Compliance region (EU, US, UK, IN, etc.)")
     project_type: str = Field(default="general", description="Project type (DeFi, NFT, DAO, general)")
+    urgency: str = Field(default="standard", description="Processing urgency (standard, expedited)")
+    notification_email: str = Field(default="", description="Email for completion notifications")
     input_data: InputData
 
     class Config:
@@ -65,8 +73,13 @@ class StartJobRequest(BaseModel):
             "example": {
                 "identifier_from_purchaser": "web3_user_123",
                 "region": "EU",
+                "project_type": "DeFi",
+                "urgency": "standard",
+                "notification_email": "user@example.com",
                 "input_data": {
-                    "document_text": "Whitepaper content about our DeFi protocol..."
+                    "document_text": "Our DeFi protocol enables decentralized lending...",
+                    "document_type": "whitepaper",
+                    "priority": "high"
                 }
             }
         }
@@ -75,15 +88,104 @@ class ProvideInputRequest(BaseModel):
     job_id: str
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Email Notification Function
+# ─────────────────────────────────────────────────────────────────────────────
+def extract_compliance_score(result_text: str) -> str:
+    """Extract compliance score from analysis result"""
+    import re
+    
+    # Look for compliance score patterns
+    score_patterns = [
+        r'compliance[_\s]score["\s]*:?["\s]*([0-9.]+)',
+        r'score["\s]*:?["\s]*([0-9.]+)',
+        r'([0-9]+)%[\s]*compliant',
+        r'([0-9.]+)[\s]*out[\s]*of[\s]*1'
+    ]
+    
+    for pattern in score_patterns:
+        match = re.search(pattern, result_text.lower())
+        if match:
+            score = float(match.group(1))
+            if score <= 1:
+                return f"{score*100:.1f}%"
+            else:
+                return f"{score:.1f}%"
+    
+    return "Analysis complete - see detailed results"
+
+def send_completion_email(email: str, job_id: str, result: str):
+    """Send email notification when analysis is complete"""
+    if not email or email == "":
+        return
+    
+    try:
+        # Email configuration (you'd set these in .env)
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        sender_email = os.getenv("SENDER_EMAIL", "noreply@compliance.ai")
+        sender_password = os.getenv("SENDER_PASSWORD", "")
+        
+        if not sender_password:
+            print(f"Email notification skipped - no SMTP credentials configured")
+            return
+            
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = email
+        msg['Subject'] = f"Compliance Analysis Complete - Job {job_id[:8]}"
+        
+        body = f"""
+        Your Web3 compliance analysis is complete!
+        
+        Job ID: {job_id}
+        Status: Completed
+        
+        Analysis Summary:
+        {result[:500]}...
+        
+        View full results at: http://your-api-url/status?job_id={job_id}
+        
+        Best regards,
+        Compliance Analysis Team
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"✉️  Email notification sent to {email}")
+        
+    except Exception as e:
+        print(f"❌ Failed to send email notification: {str(e)}")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CrewAI Task Execution
 # ─────────────────────────────────────────────────────────────────────────────
-async def execute_crew_task(input_data: str, region: str = "EU", project_type: str = "general") -> str:
+async def execute_crew_task(input_data: str, region: str = "EU", project_type: str = "general", urgency: str = "standard") -> tuple:
     """ Execute a CrewAI task with Web3 Compliance Analysis """
-    logger.info(f"Starting Web3 compliance analysis for region: {region}, type: {project_type}")
+    import time
+    start_time = time.time()
+    
+    logger.info(f"Starting Web3 compliance analysis for region: {region}, type: {project_type}, urgency: {urgency}")
+    
+    # Adjust processing based on urgency
+    if urgency == "expedited":
+        logger.info("EXPEDITED processing requested - prioritizing analysis")
+    
     crew = ComplianceCrew(logger=logger)
     result = crew.crew.kickoff(inputs={"text": input_data, "region": region, "project_type": project_type})
-    logger.info("Web3 compliance analysis completed successfully")
-    return result
+    
+    end_time = time.time()
+    processing_time = f"{end_time - start_time:.2f} seconds"
+    
+    logger.info(f"Web3 compliance analysis completed successfully in {processing_time}")
+    return result, processing_time
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1) Start Job (MIP-003: /start_job)
@@ -113,17 +215,37 @@ async def start_job(data: StartJobRequest):
                 "input_data": data.input_data,
                 "region": getattr(data, 'region', 'EU'),
                 "project_type": getattr(data, 'project_type', 'general'),
+                "urgency": getattr(data, 'urgency', 'standard'),
+                "priority": getattr(data.input_data, 'priority', 'normal'),
+                "document_type": getattr(data.input_data, 'document_type', 'whitepaper'),
+                "notification_email": getattr(data, 'notification_email', ''),
                 "result": None,
                 "identifier_from_purchaser": data.identifier_from_purchaser,
-                "test_mode": True
+                "test_mode": True,
+                "created_at": time.time()
             }
 
             # Execute the task directly in test mode
             try:
                 region = getattr(data, 'region', 'EU')
                 project_type = getattr(data, 'project_type', 'general')
-                result = await execute_crew_task(data.input_data.document_text, region, project_type)
+                urgency = getattr(data, 'urgency', 'standard')
+                priority = getattr(data.input_data, 'priority', 'normal')
+                document_type = getattr(data.input_data, 'document_type', 'whitepaper')
+                
+                # Log processing details
+                logger.info(f"Processing {document_type} with {priority} priority")
+                
+                result, processing_time = await execute_crew_task(
+                    data.input_data.document_text, region, project_type, urgency
+                )
+                
+                # Extract compliance score
+                compliance_score = extract_compliance_score(result.raw)
+                
                 logger.info(f"Web3 compliance analysis completed for job {job_id} in test mode")
+                logger.info(f"Compliance Score: {compliance_score}")
+                logger.info(f"Processing Time: {processing_time}")
 
                 # Update job status
                 jobs[job_id]["status"] = "completed"
@@ -136,15 +258,62 @@ async def start_job(data: StartJobRequest):
                 }
 
                 # Return test mode response
-                return {
+                response = {
                     "status": "success",
                     "job_id": job_id,
                     "test_mode": True,
                     "message": "Job completed in test mode without payment verification",
                     "agentIdentifier": agent_identifier,
                     "identifierFromPurchaser": data.identifier_from_purchaser,
-                    "result": result.raw
+                    "region": region,
+                    "project_type": project_type,
+                    "urgency": urgency,
+                    "document_type": document_type,
+                    "priority": priority,
+                    "result": result.raw,
+                    "processing_time": processing_time,
+                    "compliance_score": compliance_score,
+                    "notification_email": getattr(data, 'notification_email', ''),
+                    "analysis_metadata": {
+                        "document_length": len(data.input_data.document_text),
+                        "analysis_type": f"{region} {project_type} Compliance",
+                        "priority_level": priority,
+                        "urgency_level": urgency
+                    }
                 }
+                
+                # Print enhanced formatted output to console
+                print("\n" + "="*70)
+                print("🚀 WEB3 COMPLIANCE ANALYSIS COMPLETE")
+                print("="*70)
+                print(f"📊 Job ID: {job_id}")
+                print(f"🌍 Region: {region}")
+                print(f"🏗️  Project Type: {project_type}")
+                print(f"📄 Document Type: {document_type}")
+                print(f"⚡ Urgency: {urgency}")
+                print(f"🎯 Priority: {priority}")
+                print(f"✅ Status: {response['status']}")
+                print(f"🧪 Test Mode: {response['test_mode']}")
+                print(f"⏱️  Processing Time: {processing_time}")
+                print(f"📊 Compliance Score: {compliance_score}")
+                if getattr(data, 'notification_email', ''):
+                    print(f"📧 Notification Email: {data.notification_email}")
+                print("\n📋 DETAILED ANALYSIS RESULT:")
+                print("-" * 50)
+                print(result.raw)
+                print("-" * 50)
+                print(f"\n📈 ANALYSIS METADATA:")
+                print(f"  • Document Length: {len(data.input_data.document_text)} characters")
+                print(f"  • Analysis Type: {region} {project_type} Compliance")
+                print(f"  • Priority Level: {priority}")
+                print(f"  • Urgency Level: {urgency}")
+                print("\n" + "="*70)
+                
+                # Send email notification if provided
+                if hasattr(data, 'notification_email') and data.notification_email:
+                    send_completion_email(data.notification_email, job_id, result.raw)
+                
+                return response
             except Exception as e:
                 logger.error(f"Error executing task in test mode for job {job_id}: {str(e)}", exc_info=True)
                 jobs[job_id]["status"] = "failed"
